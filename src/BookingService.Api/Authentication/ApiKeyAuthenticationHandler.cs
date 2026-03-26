@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
@@ -20,6 +22,11 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (string.IsNullOrWhiteSpace(Options.ApiKey))
+        {
+            return Task.FromResult(AuthenticateResult.Fail("API key authentication is not configured on the server."));
+        }
+
         if (!Request.Headers.TryGetValue(HeaderName, out var headerValue))
         {
             return Task.FromResult(AuthenticateResult.NoResult());
@@ -32,7 +39,10 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
             return Task.FromResult(AuthenticateResult.Fail("API key is empty."));
         }
 
-        if (!string.Equals(providedKey, Options.ApiKey, StringComparison.Ordinal))
+        // Use constant-time comparison to prevent timing attacks
+        var expectedBytes = Encoding.UTF8.GetBytes(Options.ApiKey);
+        var providedBytes = Encoding.UTF8.GetBytes(providedKey);
+        if (!CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes))
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid API key."));
         }

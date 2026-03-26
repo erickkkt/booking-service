@@ -41,7 +41,6 @@ public sealed class SecurityHeadersMiddleware
 
             // Prevent caching of API responses that may contain sensitive data
             headers["Cache-Control"] = "no-store";
-            headers["Pragma"] = "no-cache";
 
             // Remove server identification header
             headers.Remove("Server");
