@@ -51,7 +51,7 @@ public sealed class PaymentCompletedConsumer : BackgroundService
             _subscriptionName,
             new ServiceBusProcessorOptions
             {
-                MaxConcurrentCalls = 1,
+                MaxConcurrentCalls = 4,
                 AutoCompleteMessages = false
             });
 

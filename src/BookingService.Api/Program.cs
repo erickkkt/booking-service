@@ -67,8 +67,6 @@ try
     {
         opts.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
-            diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value ?? string.Empty);
-            diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
             if (httpContext.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey))
                 diagnosticContext.Set("IdempotencyKey", idempotencyKey.ToString());
         };

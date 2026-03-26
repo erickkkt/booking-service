@@ -34,9 +34,23 @@ public sealed class IdempotencyMiddleware
         var existing = await idempotencyStore.GetAsync(key, context.RequestAborted);
         if (existing is not null)
         {
+            // If a different payload is sent with the same key, reject the request (409 Conflict)
+            if (existing.RequestHash != requestHash)
+            {
+                _logger.LogWarning(
+                    "Idempotency-Key {IdempotencyKey} reused with a different payload (hash mismatch). Returning 409.",
+                    key);
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(
+                    """{"type":"https://httpstatuses.com/409","title":"Conflict","detail":"The Idempotency-Key was already used with a different request payload.","status":409}""",
+                    context.RequestAborted);
+                return;
+            }
+
             _logger.LogInformation(
-                "Returning cached idempotent response for key {IdempotencyKey} (hash match: {HashMatch})",
-                key, existing.RequestHash == requestHash);
+                "Returning cached idempotent response for key {IdempotencyKey}",
+                key);
 
             context.Response.StatusCode = existing.StatusCode;
             context.Response.ContentType = "application/json";
