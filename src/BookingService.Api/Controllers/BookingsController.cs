@@ -2,11 +2,13 @@ using BookingService.Application.Bookings.Commands;
 using BookingService.Application.Bookings.Queries;
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingService.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public sealed class BookingsController : ControllerBase
 {

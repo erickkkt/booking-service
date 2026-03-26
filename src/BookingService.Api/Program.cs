@@ -1,7 +1,9 @@
+using BookingService.Api.Authentication;
 using BookingService.Api.Middleware;
 using BookingService.Application.DependencyInjection;
 using BookingService.Infrastructure.DependencyInjection;
 using BookingService.Infrastructure.Persistence;
+using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -27,7 +29,37 @@ try
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.AddSecurityDefinition(ApiKeyAuthenticationHandler.SchemeName, new OpenApiSecurityScheme
+        {
+            Name = ApiKeyAuthenticationHandler.HeaderName,
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Description = "API key authentication via the X-Api-Key header."
+        });
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = ApiKeyAuthenticationHandler.SchemeName
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
+
+    // Authentication: API key via X-Api-Key header
+    builder.Services.AddAuthentication(ApiKeyAuthenticationHandler.SchemeName)
+        .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+            ApiKeyAuthenticationHandler.SchemeName,
+            options => options.ApiKey = builder.Configuration["Authentication:ApiKey"] ?? string.Empty);
+    builder.Services.AddAuthorization();
 
     // Application layer: CQRS (MediatR) + FluentValidation (Step 2)
     builder.Services.AddApplication();
@@ -57,7 +89,14 @@ try
         app.UseSwaggerUI();
     }
 
+    // Security headers (X-Content-Type-Options, X-Frame-Options, CSP, HSTS, etc.)
+    app.UseSecurityHeaders();
+
     app.UseHttpsRedirection();
+
+    // Authentication & Authorization
+    app.UseAuthentication();
+    app.UseAuthorization();
 
     // Idempotency middleware for POST /api/bookings (Step 5)
     app.UseIdempotencyMiddleware();
