@@ -1,9 +1,43 @@
+# Build output
 bin/
 obj/
+out/
+TestResults/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE
 .vs/
 .vscode/
-*.user
-*.suo
-*.swp
+.idea/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
 appsettings.Development.json
+
+# Coverage
+coverage/
+coverage-report/
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+packages/
+
+# Docker overrides
+docker-compose.override.yml
