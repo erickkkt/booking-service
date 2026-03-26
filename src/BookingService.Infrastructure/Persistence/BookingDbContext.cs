@@ -23,6 +23,7 @@ public sealed class BookingDbContext : DbContext
 public sealed class IdempotencyEntry
 {
     public string Key { get; set; } = default!;
+    public string RequestHash { get; set; } = default!;
     public int StatusCode { get; set; }
     public string ResponseBody { get; set; } = default!;
     public DateTimeOffset CreatedAtUtc { get; set; }

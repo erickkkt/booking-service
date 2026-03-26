@@ -1,5 +1,6 @@
 using Azure.Messaging.ServiceBus;
 using BookingService.Application.Abstractions;
+using BookingService.Infrastructure.Messaging;
 using BookingService.Infrastructure.Outbox;
 using BookingService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -34,16 +35,32 @@ public static class InfrastructureServiceCollectionExtensions
 
         var serviceBusConnectionString = configuration.GetConnectionString("ServiceBus");
         var topicName = configuration["ServiceBus:TopicName"] ?? "booking-events";
+        var paymentSubscriptionName = configuration["ServiceBus:PaymentSubscriptionName"] ?? "booking-service-payment";
 
         if (string.IsNullOrWhiteSpace(serviceBusConnectionString))
         {
             services.AddSingleton<IOutboxMessageSender, NoOpOutboxMessageSender>();
+            // Register PaymentCompletedConsumer in no-op mode (null client)
+            services.AddHostedService(sp =>
+                new PaymentCompletedConsumer(
+                    sp.GetRequiredService<IServiceScopeFactory>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PaymentCompletedConsumer>>(),
+                    serviceBusClient: null,
+                    topicName,
+                    paymentSubscriptionName));
         }
         else
         {
             services.AddSingleton(new ServiceBusClient(serviceBusConnectionString));
             services.AddSingleton(sp => sp.GetRequiredService<ServiceBusClient>().CreateSender(topicName));
             services.AddSingleton<IOutboxMessageSender, ServiceBusOutboxMessageSender>();
+            services.AddHostedService(sp =>
+                new PaymentCompletedConsumer(
+                    sp.GetRequiredService<IServiceScopeFactory>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PaymentCompletedConsumer>>(),
+                    sp.GetRequiredService<ServiceBusClient>(),
+                    topicName,
+                    paymentSubscriptionName));
         }
 
         services.AddHostedService<OutboxDispatcher>();
@@ -51,3 +68,4 @@ public static class InfrastructureServiceCollectionExtensions
         return services;
     }
 }
+

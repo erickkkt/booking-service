@@ -15,7 +15,9 @@ public sealed class EfCoreIdempotencyStore : IIdempotencyStore
     public async Task<IdempotencyRecord?> GetAsync(string key, CancellationToken cancellationToken = default)
     {
         var entity = await _dbContext.IdempotencyEntries.FirstOrDefaultAsync(x => x.Key == key, cancellationToken);
-        return entity is null ? null : new IdempotencyRecord(entity.Key, entity.StatusCode, entity.ResponseBody, entity.CreatedAtUtc);
+        return entity is null
+            ? null
+            : new IdempotencyRecord(entity.Key, entity.RequestHash, entity.StatusCode, entity.ResponseBody, entity.CreatedAtUtc);
     }
 
     public async Task SaveAsync(IdempotencyRecord record, CancellationToken cancellationToken = default)
@@ -26,6 +28,7 @@ public sealed class EfCoreIdempotencyStore : IIdempotencyStore
             _dbContext.IdempotencyEntries.Add(new IdempotencyEntry
             {
                 Key = record.Key,
+                RequestHash = record.RequestHash,
                 StatusCode = record.StatusCode,
                 ResponseBody = record.ResponseBody,
                 CreatedAtUtc = record.CreatedAtUtc
@@ -33,6 +36,7 @@ public sealed class EfCoreIdempotencyStore : IIdempotencyStore
         }
         else
         {
+            entity.RequestHash = record.RequestHash;
             entity.StatusCode = record.StatusCode;
             entity.ResponseBody = record.ResponseBody;
         }
@@ -40,3 +44,4 @@ public sealed class EfCoreIdempotencyStore : IIdempotencyStore
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+

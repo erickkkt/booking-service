@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using BookingService.Application.Abstractions;
 
@@ -24,9 +25,33 @@ public sealed class IdempotencyMiddleware
         }
 
         var key = values.ToString();
+
+        // Step 5: compute request hash to detect payload changes for the same idempotency key
+        context.Request.EnableBuffering();
+        var requestHash = await ComputeRequestHashAsync(context.Request, context.RequestAborted);
+        context.Request.Body.Position = 0;
+
         var existing = await idempotencyStore.GetAsync(key, context.RequestAborted);
         if (existing is not null)
         {
+            // If a different payload is sent with the same key, reject the request (409 Conflict)
+            if (existing.RequestHash != requestHash)
+            {
+                _logger.LogWarning(
+                    "Idempotency-Key {IdempotencyKey} reused with a different payload (hash mismatch). Returning 409.",
+                    key);
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(
+                    """{"type":"https://httpstatuses.com/409","title":"Conflict","detail":"The Idempotency-Key was already used with a different request payload.","status":409}""",
+                    context.RequestAborted);
+                return;
+            }
+
+            _logger.LogInformation(
+                "Returning cached idempotent response for key {IdempotencyKey}",
+                key);
+
             context.Response.StatusCode = existing.StatusCode;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(existing.ResponseBody, context.RequestAborted);
@@ -44,13 +69,24 @@ public sealed class IdempotencyMiddleware
 
         if (context.Response.StatusCode is >= 200 and < 300)
         {
-            await idempotencyStore.SaveAsync(new IdempotencyRecord(key, context.Response.StatusCode, responseText, DateTimeOffset.UtcNow), context.RequestAborted);
+            await idempotencyStore.SaveAsync(
+                new IdempotencyRecord(key, requestHash, context.Response.StatusCode, responseText, DateTimeOffset.UtcNow),
+                context.RequestAborted);
+
             _logger.LogInformation("Stored idempotent response for key {IdempotencyKey}", key);
         }
 
         responseBody.Position = 0;
         await responseBody.CopyToAsync(originalBody, context.RequestAborted);
         context.Response.Body = originalBody;
+    }
+
+    private static async Task<string> ComputeRequestHashAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        using var ms = new MemoryStream();
+        await request.Body.CopyToAsync(ms, cancellationToken);
+        var bytes = SHA256.HashData(ms.ToArray());
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 }
 
@@ -59,3 +95,4 @@ public static class IdempotencyMiddlewareExtensions
     public static IApplicationBuilder UseIdempotencyMiddleware(this IApplicationBuilder app)
         => app.UseMiddleware<IdempotencyMiddleware>();
 }
+
