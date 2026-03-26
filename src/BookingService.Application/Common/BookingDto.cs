@@ -9,4 +9,7 @@ public sealed record BookingDto(
     string Status,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? ConfirmedAtUtc,
-    DateTimeOffset? CancelledAtUtc);
+    DateTimeOffset? CancelledAtUtc,
+    DateTimeOffset? FailedAtUtc,
+    string? FailedReason);
+

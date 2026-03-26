@@ -11,6 +11,8 @@ public sealed class Booking
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? ConfirmedAtUtc { get; private set; }
     public DateTimeOffset? CancelledAtUtc { get; private set; }
+    public DateTimeOffset? FailedAtUtc { get; private set; }
+    public string? FailedReason { get; private set; }
 
     private Booking() { }
 
@@ -33,14 +35,13 @@ public sealed class Booking
     public void Confirm()
     {
         if (Status == BookingStatus.Cancelled)
-        {
             throw new InvalidOperationException("Cancelled bookings cannot be confirmed.");
-        }
+
+        if (Status == BookingStatus.Failed)
+            throw new InvalidOperationException("Failed bookings cannot be confirmed.");
 
         if (Status == BookingStatus.Confirmed)
-        {
             return;
-        }
 
         Status = BookingStatus.Confirmed;
         ConfirmedAtUtc = DateTimeOffset.UtcNow;
@@ -49,11 +50,26 @@ public sealed class Booking
     public void Cancel()
     {
         if (Status == BookingStatus.Cancelled)
-        {
             return;
-        }
 
         Status = BookingStatus.Cancelled;
+        CancelledAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Marks the booking as failed (e.g. inventory unavailable, payment failure).
+    /// Triggers a compensation flow: the booking is also cancelled.
+    /// Edge Case 3: Inventory unavailable after booking — emit BookingFailed, trigger compensation.
+    /// </summary>
+    public void Fail(string reason)
+    {
+        if (Status is BookingStatus.Cancelled or BookingStatus.Failed)
+            return;
+
+        Status = BookingStatus.Failed;
+        FailedReason = reason;
+        FailedAtUtc = DateTimeOffset.UtcNow;
+        // Compensation: auto-cancel so the booking cannot be confirmed later
         CancelledAtUtc = DateTimeOffset.UtcNow;
     }
 }

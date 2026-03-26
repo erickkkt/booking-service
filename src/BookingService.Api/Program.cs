@@ -1,35 +1,90 @@
 using BookingService.Api.Middleware;
-using BookingService.Application.Abstractions;
-using BookingService.Application.Bookings;
+using BookingService.Application.DependencyInjection;
 using BookingService.Infrastructure.DependencyInjection;
 using BookingService.Infrastructure.Persistence;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddScoped<IBookingService, BookingService.Application.Bookings.BookingService>();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
+try
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Structured logging with Serilog (Step 7.1)
+    builder.Host.UseSerilog((ctx, services, config) =>
+    {
+        config
+            .ReadFrom.Configuration(ctx.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            .Enrich.WithProperty("Application", "BookingService")
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+    });
+
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+
+    // Application layer: CQRS (MediatR) + FluentValidation (Step 2)
+    builder.Services.AddApplication();
+
+    // Infrastructure layer: EF Core, Outbox, Service Bus, Idempotency (Steps 2, 4, 5)
+    builder.Services.AddInfrastructure(builder.Configuration);
+
+    // Distributed tracing with OpenTelemetry (Step 7.3)
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService("BookingService", serviceVersion: "1.0.0"))
+        .WithTracing(tracing => tracing
+            .AddAspNetCoreInstrumentation(opts => opts.RecordException = true)
+            .AddHttpClientInstrumentation()
+            .AddConsoleExporter());
+
+    var app = builder.Build();
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        await dbContext.Database.EnsureCreatedAsync();
+    }
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    app.UseHttpsRedirection();
+
+    // Idempotency middleware for POST /api/bookings (Step 5)
+    app.UseIdempotencyMiddleware();
+
+    // Add request logging for observability (Step 7.1)
+    app.UseSerilogRequestLogging(opts =>
+    {
+        opts.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        {
+            diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value ?? string.Empty);
+            diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+            if (httpContext.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey))
+                diagnosticContext.Set("IdempotencyKey", idempotencyKey.ToString());
+        };
+    });
+
+    app.MapControllers();
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+
+    app.Run();
+}
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-app.UseIdempotencyMiddleware();
-app.MapControllers();
-app.MapGet("/", () => Results.Redirect("/swagger"));
-
-app.Run();

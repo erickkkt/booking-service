@@ -6,4 +6,5 @@ public interface IIdempotencyStore
     Task SaveAsync(IdempotencyRecord record, CancellationToken cancellationToken = default);
 }
 
-public sealed record IdempotencyRecord(string Key, int StatusCode, string ResponseBody, DateTimeOffset CreatedAtUtc);
+public sealed record IdempotencyRecord(string Key, string RequestHash, int StatusCode, string ResponseBody, DateTimeOffset CreatedAtUtc);
+
