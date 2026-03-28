@@ -118,7 +118,7 @@ Manual Configuration ........... ~5%
 
 ---
 
-## 3. Preventing Blind AI Usage in the Backend Team
+## 3. How Preventing Blind AI Usage in the Backend Team
 
 ### The Problem
 
@@ -144,7 +144,7 @@ Blind AI usage occurs when developers accept AI-generated code without understan
 
 #### 2. Mandate Understanding Before Merging
 
-- **"Explain Your Code" Rule**: Any developer must be able to explain what their code does line-by-line in a review session
+- **"Explain Code" Rule**: Any developer must be able to explain what their code does line-by-line in a review session
 - **Pair Programming Sessions**: When using AI tools, pair with another developer to discuss and validate output
 - **Design Document Requirement**: For complex features, require a brief design doc *before* prompting AI — this ensures the developer understands the problem first
 
@@ -158,43 +158,13 @@ Blind AI usage occurs when developers accept AI-generated code without understan
 | **Architecture Tests** | ArchUnitNET | Enforce layer boundaries and dependency rules |
 | **Linting** | .editorconfig, dotnet format | Maintain consistent code style |
 
-#### 4. Create Team AI Usage Guidelines
 
-- **Approved AI Tools List**: Specify which AI tools are sanctioned for use
-- **Data Privacy Rules**: Never paste production data, secrets, or PII into AI tools
-- **Prompt Engineering Standards**: Document effective prompting patterns for the team's tech stack
-- **AI Output Ownership**: The developer who submits the code owns it, regardless of whether AI generated it
-- **Disclosure Policy**: Require developers to disclose AI usage in commit messages or PR descriptions
-
-#### 5. Invest in Developer Knowledge
-
-- **Regular Architecture Reviews**: Ensure the team understands system design — AI can generate code, but developers must understand *why* the design decisions were made
-- **Knowledge Sharing Sessions**: Weekly or bi-weekly sessions where team members present components they built (with or without AI)
-- **Training on AI Limitations**: Teach the team about common AI failure modes:
-  - Hallucinated APIs or libraries
-  - Outdated patterns (e.g., pre-.NET 8 conventions)
-  - Subtle logic errors in edge cases
-  - Copy-paste vulnerabilities from training data
-
-#### 6. Monitor and Measure
+#### 4. Monitor and Measure
 
 - **Track AI Usage Metrics**: How often AI tools are used, rejection rates in reviews
 - **Incident Postmortems**: If a bug reaches production, check if it was AI-generated
 - **Quality Trend Analysis**: Compare defect density between AI-assisted and manually written code
 - **Periodic Code Audits**: Randomly audit merged PRs for blind AI usage indicators
-
-### Summary Table
-
-| Strategy | Effort | Impact |
-|----------|--------|--------|
-| PR review gate with AI checklist | Low | High |
-| "Explain Your Code" rule | Low | High |
-| Automated static analysis & security scanning | Medium | High |
-| Team AI usage guidelines document | Low | Medium |
-| Architecture tests (ArchUnit) | Medium | Medium |
-| Test coverage thresholds (≥80%) | Low | Medium |
-| Knowledge sharing sessions | Low | Medium |
-| AI usage metrics & monitoring | Medium | Medium |
 
 ---
 
@@ -215,16 +185,3 @@ Blind AI usage occurs when developers accept AI-generated code without understan
 
 ---
 
-## 5. Known Limitations & Future Improvements
-
-- Replace `EnsureCreated()` with EF Core Migrations for production
-- Add integration tests for API endpoints and database interactions
-- Add health check endpoints (`/health`, `/ready`)
-- Implement retry/backoff and poison message handling for outbox dispatch
-- Add production secrets management (Azure Key Vault / AWS Secrets Manager)
-- Add request rate limiting
-- Add OpenTelemetry correlation IDs across service boundaries
-
----
-
-*Document generated for submission review. Total length: under 6 pages when rendered as PDF.*
