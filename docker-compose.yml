@@ -60,7 +60,7 @@ services:
     container_name: booking-service-sqlserver
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "Your_password123"
+      MSSQL_SA_PASSWORD: "sql_password123"
     ports:
       - "1433:1433"
     volumes:
